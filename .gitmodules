@@ -1,0 +1,3 @@
+[submodule "cukdtree"]
+	path = cukdtree
+	url = https://github.com/CvHadesSun/cukdtree.git

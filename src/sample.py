@@ -312,7 +312,7 @@ def compute_sdf_and_occ_points_new_cpu(mesh_dir,out_dir,count,epsilon=0.01):
 
     final_all = np.concatenate([surface_pts_occ_sdf,volume_pts_occ_sdf],0)
 
-    # np.save(out_dir,final_all)
+    np.save(out_dir,final_all)
 
 
 

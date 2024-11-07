@@ -7,6 +7,8 @@ import trimesh
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.sample import compute_sdf_and_occ_points_new,compute_sdf_and_occ_points_new_cpu
+import warnings
+warnings.filterwarnings("ignore", message="No mtl file provided")
 
 
 if __name__ == '__main__':

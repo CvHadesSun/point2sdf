@@ -47,10 +47,38 @@ def normalize_mesh(mesh: Meshes):
 
     return mesh, triangles
 
-def load_mesh_and_sample(mesh_dir, num_samples):
+
+def normalize_mesh_unit(mesh: Meshes):
+    verts = mesh.verts_packed()  # Get vertices as a flat tensor
+    center = verts.mean(0)       # Calculate centroid
+    verts -= center              # Center the mesh at the origin
+
+    # Calculate bounding box dimensions and scaling factor
+    bbox_min = verts.min(0)[0]
+    bbox_max = verts.max(0)[0]
+    scale = 2.0 / (bbox_max - bbox_min).max()  # Scale to fit within [-1, 1]
+
+    # Scale vertices to fit within [-1, 1]
+    verts *= scale
+
+    # Update the mesh with normalized vertices
+    mesh = mesh.update_padded(torch.unsqueeze(verts, 0))
+
+    # Extract the triangles in the shape [n, 3, 3]
+    faces = mesh.faces_packed()          # Get face indices
+    triangles = verts[faces]             # Get triangle vertices
+
+    return mesh, triangles
+
+def load_mesh_and_sample(mesh_dir, num_samples,mode='unit_01'): # mode unit_01
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     mesh = load_objs_as_meshes([mesh_dir], device=device)
-    normalized_mesh, triangles = normalize_mesh(mesh)
+    if mode=='unit_11':
+        normalized_mesh, triangles = normalize_mesh_unit(mesh)
+    elif mode=='unit_01':
+        normalized_mesh, triangles = normalize_mesh(mesh)
+    else:
+        raise ValueError("Invalid mode. Choose either 'unit_01' or 'unit_11'")
     surface_points,surface_normals = sample_points_from_meshes(normalized_mesh, num_samples,return_normals=True)
     return surface_points[0],triangles[0],surface_normals[0]
 

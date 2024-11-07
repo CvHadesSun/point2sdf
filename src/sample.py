@@ -7,6 +7,7 @@ from .tools import normalize_mesh,load_mesh_and_sample,normalize_mesh_cpu,comput
 import time
 from pykdtree.kdtree import KDTree
 from skimage import measure
+import os
 
 def compute_sdf(query_pts,kd_tree,src_pts,sign_field):
     '''input points and compute sdf.
@@ -60,10 +61,13 @@ def compute_sdf_from_normal(query_pts,kd_tree_box,data_ptr,src_pts,face_normals,
     dot_products = torch.sum(vectors * neighbor_normals,dim=-1)
 
     inside_mask = torch.where(dot_products <0.0)
-
-    
     dist_tensor[inside_mask] *= -1
-    pts = query_pts * 2 - 1 # [-1,1]
+
+    if query_pts.min() >=0.0:
+        pts = query_pts * 2 - 1 # [-1,1]
+    else:
+        pts = query_pts
+
     if occ:
         occ = torch.ones_like(dist_tensor).cuda()
         occ[inside_mask] = 0
@@ -322,5 +326,28 @@ def compute_sdf_and_occ_points_new_cpu(mesh_dir,out_dir,count,epsilon=0.01,occ=F
     np.save(out_dir,final_all)
 
 
+def sample_volume_and_surface(mesh_dir,out_dir,vol_count,surf_count,epsilon=0.0):
+    '''input mesh and sample volume and surface points.'''
+    os.makedirs(out_dir,exist_ok=True)
+    src_points_tensor,_,face_normals=load_mesh_and_sample(mesh_dir,10_000_000,mode='unit_11')
+    points_ind = torch.arange(src_points_tensor.size(0), dtype=torch.int32, device='cuda:0')
+    kd_tree_box,data_ptr = cuda_kdtree.build_kdtree_with_indices(src_points_tensor,points_ind)
+
+    # for volume points
+    volume_points_tensor = (torch.rand(vol_count,3)*2-1).float().cuda() # [-1,1]
+    volume_pts_sdf = compute_sdf_from_normal(volume_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ=False) # [count,5]
+    np.save(os.path.join(out_dir,'volume_points.npy'),volume_pts_sdf.cpu().numpy())
+    # 
+    surface_points_sample,_,surface_normals= load_mesh_and_sample(mesh_dir,surf_count,mode='unit_11')
+    if epsilon > 0.0:
+        surface_points_sample = surface_points_sample + torch.randn(surf_count, 3).float().cuda() * epsilon
+        surface_pts_sdf = compute_sdf_from_normal(surface_points_sample,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ=False) # [count,5]
+    else:
+        _sdf = torch.zeros_like(surface_points_sample[:,0]).float().cuda()
+        surface_pts_sdf = torch.cat([surface_points_sample,_sdf.reshape(-1,1)],-1)
+    surface_res = torch.cat([surface_pts_sdf,surface_normals],-1) # [xyz,sdf,nxyz]
+    np.save(os.path.join(out_dir,'surface_points.npy'),surface_res.cpu().numpy())
+    
+    
 
     

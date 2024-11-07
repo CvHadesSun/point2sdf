@@ -4,6 +4,7 @@ import sys
 import  os
 import time
 import trimesh
+from rich.progress import Progress
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.sample import compute_sdf_and_occ_points_new,compute_sdf_and_occ_points_new_cpu

@@ -5,6 +5,10 @@ import trimesh
 from skimage import measure
 from scipy.interpolate import griddata
 import argparse
+from rich.console import Console
+from rich.spinner import Spinner
+import time
+
 
 
 def sdf2mesh(sdf_dir,out_dir,type='sdf'):
@@ -37,4 +41,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    sdf2mesh(args.input,args.output,args.type)
+    console = Console()
+
+    with console.status("[bold green] Reconstructing..."):
+        sdf2mesh(args.input,args.output,args.type)

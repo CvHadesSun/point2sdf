@@ -39,7 +39,7 @@ def compute_sdf(query_pts,kd_tree,src_pts,sign_field):
 
     return pts_occ_sdf
 
-def compute_sdf_from_normal(query_pts,kd_tree_box,data_ptr,src_pts,face_normals):
+def compute_sdf_from_normal(query_pts,kd_tree_box,data_ptr,src_pts,face_normals,occ):
     '''input points and compute sdf.
     @input:
         pts: points for compute sdf.
@@ -61,12 +61,15 @@ def compute_sdf_from_normal(query_pts,kd_tree_box,data_ptr,src_pts,face_normals)
 
     inside_mask = torch.where(dot_products <0.0)
 
-    occ = torch.ones_like(dist_tensor).cuda()
+    
     dist_tensor[inside_mask] *= -1
-    occ[inside_mask] = 0
     pts = query_pts * 2 - 1 # [-1,1]
-
-    pts_occ_sdf = torch.cat([pts,occ.reshape(-1,1),dist_tensor.reshape(-1,1)],-1) # [xyz,occ,sdf]
+    if occ:
+        occ = torch.ones_like(dist_tensor).cuda()
+        occ[inside_mask] = 0
+        pts_occ_sdf = torch.cat([pts,occ.reshape(-1,1),dist_tensor.reshape(-1,1)],-1) # [xyz,occ,sdf]
+    else:
+        pts_occ_sdf = torch.cat([pts,dist_tensor.reshape(-1,1)],-1)
 
     return pts_occ_sdf
 
@@ -235,7 +238,7 @@ def compute_sdf_and_occ_points_input_mesh(mesh,out_dir,count,res=512,epsilon=0.0
 
     # np.save(out_dir,final_all.cpu().numpy())
 
-def compute_sdf_and_occ_points_new(mesh_dir,out_dir,count,epsilon=0.01):
+def compute_sdf_and_occ_points_new(mesh_dir,out_dir,count,epsilon=0.01,occ=False):
     '''input mesh and compute sdf and occupancy for volume and surface points.
     @input:
         mesh_dir: path to mesh file.
@@ -253,17 +256,17 @@ def compute_sdf_and_occ_points_new(mesh_dir,out_dir,count,epsilon=0.01):
 
     surface_points_sample,_,_= load_mesh_and_sample(mesh_dir,count)
     surface_points_tensor = surface_points_sample + torch.randn(count, 3).float().cuda() * epsilon
-    surface_pts_occ_sdf = compute_sdf_from_normal(surface_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals) # [count,5]
+    surface_pts_occ_sdf = compute_sdf_from_normal(surface_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ) # [count,5]
     
     volume_points_tensor = (torch.rand(count,3)).float().cuda()
-    volume_pts_occ_sdf = compute_sdf_from_normal(volume_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals) # [count,5]
+    volume_pts_occ_sdf = compute_sdf_from_normal(volume_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ) # [count,5]
 
     final_all = torch.cat([surface_pts_occ_sdf,volume_pts_occ_sdf],0)
 
     np.save(out_dir,final_all.cpu().numpy())
 
 
-def compute_sdf_from_normal_cpu(query_pts,kd_tree,src_pts,face_normals):
+def compute_sdf_from_normal_cpu(query_pts,kd_tree,src_pts,face_normals,occ):
     '''input points and compute sdf.
     @input:
         pts: points for compute sdf.
@@ -285,17 +288,21 @@ def compute_sdf_from_normal_cpu(query_pts,kd_tree,src_pts,face_normals):
     inside_mask = np.where(dot_products <0.0)
     # import ipdb; ipdb.set_trace()
 
-    occ = np.ones_like(dist)
+    
     dist[inside_mask] *= -1
-    occ[inside_mask] = 0
     pts = query_pts * 2 - 1 # [-1,1]
 
-    pts_occ_sdf = np.concatenate([pts,occ.reshape(-1,1),dist.reshape(-1,1)],-1) # [xyz,occ,sdf]
+    if occ:
+        occ = np.ones_like(dist)
+        occ[inside_mask] = 0
+        pts_occ_sdf = np.concatenate([pts,occ.reshape(-1,1),dist.reshape(-1,1)],-1) # [xyz,occ,sdf]
+    else:
+        pts_occ_sdf = np.concatenate([pts,dist.reshape(-1,1)],-1)
 
 
     return pts_occ_sdf
 
-def compute_sdf_and_occ_points_new_cpu(mesh_dir,out_dir,count,epsilon=0.01):
+def compute_sdf_and_occ_points_new_cpu(mesh_dir,out_dir,count,epsilon=0.01,occ=False):
     mesh = trimesh.load(mesh_dir, process=False, force='mesh', skip_materials=True)
     normalize_mesh_cpu(mesh) 
     surface_pts,face_idx = trimesh.sample.sample_surface(mesh, 10_000_000)
@@ -305,10 +312,10 @@ def compute_sdf_and_occ_points_new_cpu(mesh_dir,out_dir,count,epsilon=0.01):
     surface_sample,_ = trimesh.sample.sample_surface(mesh,count)
     surface_sample = surface_sample + np.random.randn(count, 3) * epsilon
 
-    surface_pts_occ_sdf = compute_sdf_from_normal_cpu(surface_sample,kd_tree,surface_pts,face_normals) # [count,5]
+    surface_pts_occ_sdf = compute_sdf_from_normal_cpu(surface_sample,kd_tree,surface_pts,face_normals,occ) # [count,5]
 
     volume_sample = np.random.rand(count,3)
-    volume_pts_occ_sdf = compute_sdf_from_normal_cpu(volume_sample,kd_tree,surface_pts,face_normals) # [count,5]
+    volume_pts_occ_sdf = compute_sdf_from_normal_cpu(volume_sample,kd_tree,surface_pts,face_normals,occ) # [count,5]
 
     final_all = np.concatenate([surface_pts_occ_sdf,volume_pts_occ_sdf],0)
 

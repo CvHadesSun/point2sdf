@@ -17,10 +17,12 @@ if __name__ == '__main__':
     parser.add_argument('--count', type=int, default=2500000)
     parser.add_argument('--epsilon', type=float, default=0.01)
     parser.add_argument('--cuda', action='store_true')
+    parser.add_argument('--occ', action='store_true', help='output occupancy info or not')
     
     args = parser.parse_args()
 
+
     if args.cuda:
-        compute_sdf_and_occ_points_new(args.input,args.output,args.count,epsilon=args.epsilon)
+        compute_sdf_and_occ_points_new(args.input,args.output,args.count,epsilon=args.epsilon,occ=args.occ)
     else:
-        compute_sdf_and_occ_points_new_cpu(args.input,args.output,args.count,epsilon=args.epsilon)
+        compute_sdf_and_occ_points_new_cpu(args.input,args.output,args.count,epsilon=args.epsilon,occ=args.occ)

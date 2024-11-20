@@ -10,9 +10,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.sample import sample_volume_and_surface
 import warnings
 warnings.filterwarnings("ignore", message="No mtl file provided")
+from rich.console import Console
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, required=True)
@@ -23,9 +23,11 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', action='store_true')
     
     args = parser.parse_args()
+    console = Console()
+    os.makedirs(args.output,exist_ok=True)
 
-
-    if args.cuda:
-        sample_volume_and_surface(args.input,args.output,args.vol_count,args.surf_count,args.epsilon)
-    else:
-        raise NotImplementedError("CPU version not implemented yet")
+    with console.status("[bold green] Sampling.."):
+        if args.cuda:
+            sample_volume_and_surface(args.input,args.output,args.vol_count,args.surf_count,args.epsilon)
+        else:
+            raise NotImplementedError("CPU version not implemented yet")

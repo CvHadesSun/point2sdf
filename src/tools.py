@@ -56,7 +56,7 @@ def normalize_mesh_unit(mesh: Meshes):
     # Calculate bounding box dimensions and scaling factor
     bbox_min = verts.min(0)[0]
     bbox_max = verts.max(0)[0]
-    scale = 2.0 / (bbox_max - bbox_min).max()  # Scale to fit within [-1, 1]
+    scale = 1.8 / (bbox_max - bbox_min).max()  # Scale to fit within [-1, 1]
 
     # Scale vertices to fit within [-1, 1]
     verts *= scale

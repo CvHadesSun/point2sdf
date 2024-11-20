@@ -253,16 +253,16 @@ def compute_sdf_and_occ_points_new(mesh_dir,out_dir,count,epsilon=0.01,occ=False
     '''
 
 
-    src_points_tensor,_,face_normals=load_mesh_and_sample(mesh_dir,10_000_000)
+    src_points_tensor,_,face_normals=load_mesh_and_sample(mesh_dir,10_000_000,mode='unit_11')
     # import ipdb; ipdb.set_trace()
     points_ind = torch.arange(src_points_tensor.size(0), dtype=torch.int32, device='cuda:0')
     kd_tree_box,data_ptr = cuda_kdtree.build_kdtree_with_indices(src_points_tensor,points_ind)
 
-    surface_points_sample,_,_= load_mesh_and_sample(mesh_dir,count)
+    surface_points_sample,_,_= load_mesh_and_sample(mesh_dir,count,mode='unit_11')
     surface_points_tensor = surface_points_sample + torch.randn(count, 3).float().cuda() * epsilon
     surface_pts_occ_sdf = compute_sdf_from_normal(surface_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ) # [count,5]
     
-    volume_points_tensor = (torch.rand(count,3)).float().cuda()
+    volume_points_tensor = (torch.rand(count,3)*2-1).float().cuda()
     volume_pts_occ_sdf = compute_sdf_from_normal(volume_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ) # [count,5]
 
     final_all = torch.cat([surface_pts_occ_sdf,volume_pts_occ_sdf],0)
@@ -334,9 +334,16 @@ def sample_volume_and_surface(mesh_dir,out_dir,vol_count,surf_count,epsilon=0.0)
     kd_tree_box,data_ptr = cuda_kdtree.build_kdtree_with_indices(src_points_tensor,points_ind)
 
     # for volume points
+    surface_points_sample_vol,_,_= load_mesh_and_sample(mesh_dir,vol_count,mode='unit_11')
+    surface_points_sample_vol = surface_points_sample_vol + torch.randn(vol_count, 3).float().cuda() * 0.01
+    surface_pts_sdf_vol = compute_sdf_from_normal(surface_points_sample_vol,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ=False) # [count,5]
+
     volume_points_tensor = (torch.rand(vol_count,3)*2-1).float().cuda() # [-1,1]
     volume_pts_sdf = compute_sdf_from_normal(volume_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ=False) # [count,5]
-    np.save(os.path.join(out_dir,'volume_points.npy'),volume_pts_sdf.cpu().numpy())
+    all_out = torch.cat([surface_pts_sdf_vol,volume_pts_sdf],0)
+
+    np.save(os.path.join(out_dir,'volume_points.npy'),all_out.cpu().numpy())
+
     # 
     surface_points_sample,_,surface_normals= load_mesh_and_sample(mesh_dir,surf_count,mode='unit_11')
     if epsilon > 0.0:

@@ -60,10 +60,13 @@ def compute_sdf_from_normal(query_pts,kd_tree_box,data_ptr,src_pts,face_normals,
     dot_products = torch.sum(vectors * neighbor_normals,dim=-1)
 
     inside_mask = torch.where(dot_products <0.0)
-
-    
     dist_tensor[inside_mask] *= -1
-    pts = query_pts * 2 - 1 # [-1,1]
+
+    if query_pts.min() >=0.0:
+        pts = query_pts * 2 - 1 # [-1,1]
+    else:
+        pts = query_pts
+
     if occ:
         occ = torch.ones_like(dist_tensor).cuda()
         occ[inside_mask] = 0
@@ -249,16 +252,16 @@ def compute_sdf_and_occ_points_new(mesh_dir,out_dir,count,epsilon=0.01,occ=False
     '''
 
 
-    src_points_tensor,_,face_normals=load_mesh_and_sample(mesh_dir,10_000_000)
+    src_points_tensor,_,face_normals=load_mesh_and_sample(mesh_dir,10_000_000,mode='unit_11')
     # import ipdb; ipdb.set_trace()
     points_ind = torch.arange(src_points_tensor.size(0), dtype=torch.int32, device='cuda:0')
     kd_tree_box,data_ptr = cuda_kdtree.build_kdtree_with_indices(src_points_tensor,points_ind)
 
-    surface_points_sample,_,_= load_mesh_and_sample(mesh_dir,count)
+    surface_points_sample,_,_= load_mesh_and_sample(mesh_dir,count,mode='unit_11')
     surface_points_tensor = surface_points_sample + torch.randn(count, 3).float().cuda() * epsilon
     surface_pts_occ_sdf = compute_sdf_from_normal(surface_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ) # [count,5]
     
-    volume_points_tensor = (torch.rand(count,3)).float().cuda()
+    volume_points_tensor = (torch.rand(count,3)*2-1).float().cuda()
     volume_pts_occ_sdf = compute_sdf_from_normal(volume_points_tensor,kd_tree_box,data_ptr,src_points_tensor,face_normals,occ) # [count,5]
 
     final_all = torch.cat([surface_pts_occ_sdf,volume_pts_occ_sdf],0)
